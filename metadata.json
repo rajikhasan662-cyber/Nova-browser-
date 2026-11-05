@@ -1,0 +1,6 @@
+{
+  "name": "NOVA Browser",
+  "description": "High-performance Android Chromium browser with desktop browsing, advanced ad & tracker blocking, tab groups, and Chrome extension compatibility runtime shell.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
