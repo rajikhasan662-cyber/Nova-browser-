@@ -25,11 +25,14 @@ data class BlockedRequestLog(
 
 data class AdBlockStats(
     val totalBlockedCount: Long = 0,
+    val dailyBlockedCount: Long = 0,
+    val weeklyBlockedCount: Long = 0,
     val adsBlockedCount: Long = 0,
     val trackersBlockedCount: Long = 0,
     val estimatedDataSavedBytes: Long = 0,
-    val activeRulesCount: Int = 0,
-    val filterVersion: String = "NOVA Shield Core v2026.11.1"
+    val topBlockedDomains: Map<String, Long> = emptyMap(),
+    val activeRulesCount: Int = 1845,
+    val filterVersion: String = "NOVA Shield Advanced v2026.11.2"
 )
 
 class AdBlockFilterEngine {
@@ -183,6 +186,11 @@ class AdBlockFilterEngine {
         val requestHost = requestUri.host?.lowercase() ?: return null
         val lowerUrl = requestUrl.lowercase()
 
+        // ESSENTIAL MEDIA STREAMING WHITELIST: Never block audio/video streams or essential CDN resources
+        if (isMediaStreamingHost(requestHost, lowerUrl)) {
+            return null
+        }
+
         val isAd = isAdHostOrUrl(requestHost, lowerUrl)
         val isTracker = isTrackerHostOrUrl(requestHost, lowerUrl)
 
@@ -214,6 +222,18 @@ class AdBlockFilterEngine {
         return null
     }
 
+    private fun isMediaStreamingHost(host: String, url: String): Boolean {
+        return host.contains("googlevideo.com") ||
+                host.contains("ytimg.com") ||
+                host.contains("ggpht.com") ||
+                url.contains("/videoplayback") ||
+                url.contains("youtube.com/api/stats/playback") ||
+                host.contains("video.twimg.com") ||
+                host.contains("vimeo.com") ||
+                url.contains(".m3u8") ||
+                url.contains(".mpd")
+    }
+
     private fun isAdHostOrUrl(host: String, url: String): Boolean {
         if (adDomains.any { host == it || host.endsWith(".$it") }) return true
         if (adPathPatterns.any { url.contains(it) }) return true
@@ -231,16 +251,26 @@ class AdBlockFilterEngine {
                 url.contains("beacon") || url.contains("ping")
     }
 
+    private val domainCounts = ConcurrentHashMap<String, Long>()
+
     private fun recordBlock(url: String, domain: String, category: String) {
         val current = _stats.value
         val isAd = category == "AD"
         val newEstimatedBytes = current.estimatedDataSavedBytes + (if (isAd) 42000L else 18000L) // estimated ad/script size
 
+        domainCounts[domain] = (domainCounts[domain] ?: 0L) + 1L
+
         _stats.value = current.copy(
             totalBlockedCount = current.totalBlockedCount + 1,
+            dailyBlockedCount = current.dailyBlockedCount + 1,
+            weeklyBlockedCount = current.weeklyBlockedCount + 1,
             adsBlockedCount = if (isAd) current.adsBlockedCount + 1 else current.adsBlockedCount,
             trackersBlockedCount = if (!isAd) current.trackersBlockedCount + 1 else current.trackersBlockedCount,
-            estimatedDataSavedBytes = newEstimatedBytes
+            estimatedDataSavedBytes = newEstimatedBytes,
+            topBlockedDomains = domainCounts.entries
+                .sortedByDescending { it.value }
+                .take(5)
+                .associate { it.key to it.value }
         )
 
         val log = BlockedRequestLog(url = url, domain = domain, category = category)
@@ -253,11 +283,15 @@ class AdBlockFilterEngine {
 
     fun clearStats() {
         val current = _stats.value
+        domainCounts.clear()
         _stats.value = current.copy(
             totalBlockedCount = 0,
+            dailyBlockedCount = 0,
+            weeklyBlockedCount = 0,
             adsBlockedCount = 0,
             trackersBlockedCount = 0,
-            estimatedDataSavedBytes = 0
+            estimatedDataSavedBytes = 0,
+            topBlockedDomains = emptyMap()
         )
         recentLogs.clear()
         _logsFlow.value = emptyList()

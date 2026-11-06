@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
@@ -77,6 +78,7 @@ fun BrowserTopBar(
     onExtensionsClick: () -> Unit,
     onSslLockClick: () -> Unit,
     onMenuClick: () -> Unit,
+    onVideoAssistantClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
@@ -266,6 +268,24 @@ fun BrowserTopBar(
                         tint = NovaCyan,
                         modifier = Modifier.size(20.dp)
                     )
+                }
+
+                // Video Assistant Button (visible when on video site)
+                val isVideoSite = navState.currentUrl.contains("youtube.com") || navState.currentUrl.contains("watch") || navState.currentUrl.contains("video")
+                if (isVideoSite && onVideoAssistantClick != null) {
+                    IconButton(
+                        onClick = onVideoAssistantClick,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .testTag("video_assistant_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayCircle,
+                            contentDescription = "Video Assistant",
+                            tint = Color(0xFFFF4444),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
 
                 // Tab Counter Badge

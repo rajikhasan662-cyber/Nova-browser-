@@ -39,8 +39,11 @@ import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.PictureInPicture
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
@@ -48,6 +51,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Tab
+import com.example.ui.components.VideoDiagnosticsDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -160,6 +164,7 @@ fun MainBrowserApp(viewModel: BrowserViewModel) {
 
     val showSslDialog by viewModel.showSslDialog.collectAsState()
     val showQrDialog by viewModel.showQrDialog.collectAsState()
+    val showVideoDiagnosticsDialog by viewModel.showVideoDiagnosticsDialog.collectAsState()
     val selectedExtDetail by viewModel.selectedExtensionForDetail.collectAsState()
     val readerArticle by viewModel.readerArticle.collectAsState()
 
@@ -256,7 +261,8 @@ fun MainBrowserApp(viewModel: BrowserViewModel) {
                             onShieldClick = { viewModel.navigateTo(BrowserScreen.PRIVACY_DASHBOARD) },
                             onExtensionsClick = { viewModel.navigateTo(BrowserScreen.EXTENSION_STORE) },
                             onSslLockClick = { viewModel.setShowSslDialog(true) },
-                            onMenuClick = { showMenuDropdown = true }
+                            onMenuClick = { showMenuDropdown = true },
+                            onVideoAssistantClick = { viewModel.setShowVideoDiagnosticsDialog(true) }
                         )
 
                         // Three-Dot Overflow Menu
@@ -313,6 +319,38 @@ fun MainBrowserApp(viewModel: BrowserViewModel) {
                                 onClick = {
                                     showMenuDropdown = false
                                     viewModel.navigateTo(BrowserScreen.DOWNLOADS)
+                                }
+                            )
+                            HorizontalDivider()
+
+                            // Video Tools
+                            DropdownMenuItem(
+                                text = { Text("Full Screen Video") },
+                                leadingIcon = { Icon(Icons.Default.Fullscreen, contentDescription = null, tint = NovaCyan) },
+                                onClick = {
+                                    showMenuDropdown = false
+                                    viewModel.forceVideoFullscreen()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Video Assistant & Diagnostics") },
+                                leadingIcon = { Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color(0xFFFF4444)) },
+                                onClick = {
+                                    showMenuDropdown = false
+                                    viewModel.setShowVideoDiagnosticsDialog(true)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Picture-in-Picture") },
+                                leadingIcon = { Icon(Icons.Default.PictureInPicture, contentDescription = null) },
+                                onClick = {
+                                    showMenuDropdown = false
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                        val params = android.app.PictureInPictureParams.Builder()
+                                            .setAspectRatio(android.util.Rational(16, 9))
+                                            .build()
+                                        activity?.enterPictureInPictureMode(params)
+                                    }
                                 }
                             )
                             HorizontalDivider()
@@ -596,6 +634,23 @@ fun MainBrowserApp(viewModel: BrowserViewModel) {
                 QrCodeDialog(
                     url = activeNavState.currentUrl,
                     onDismiss = { viewModel.setShowQrDialog(false) }
+                )
+            }
+
+            if (showVideoDiagnosticsDialog) {
+                VideoDiagnosticsDialog(
+                    onDismiss = { viewModel.setShowVideoDiagnosticsDialog(false) },
+                    onForceFullscreen = { viewModel.forceVideoFullscreen() },
+                    onEnterPip = {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            val params = android.app.PictureInPictureParams.Builder()
+                                .setAspectRatio(android.util.Rational(16, 9))
+                                .build()
+                            activity?.enterPictureInPictureMode(params)
+                        }
+                    },
+                    onSelectQuality = { quality -> viewModel.setVideoPlaybackQuality(quality) },
+                    onRequestStats = { callback -> viewModel.queryVideoDiagnostics(callback) }
                 )
             }
 

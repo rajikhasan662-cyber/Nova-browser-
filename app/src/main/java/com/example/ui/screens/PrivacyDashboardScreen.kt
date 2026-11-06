@@ -139,10 +139,28 @@ fun PrivacyDashboardScreen(
                         )
 
                         Text(
-                            text = "${stats.estimatedDataSavedBytes / 1024} KB Bandwidth Saved • ${stats.activeRulesCount} Core Filtering Rules",
+                            text = "${stats.estimatedDataSavedBytes / 1024} KB Bandwidth Saved • ${stats.activeRulesCount} Rules Active",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Text(
+                                text = "Today: ${stats.dailyBlockedCount}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NovaCyan
+                            )
+                            Text(
+                                text = "This Week: ${stats.weeklyBlockedCount}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NovaShieldGreen
+                            )
+                        }
                     }
                 }
             }

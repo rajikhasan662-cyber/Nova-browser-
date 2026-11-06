@@ -133,6 +133,18 @@ class SystemChromiumEngine(
                 if (request == null || request.isForMainFrame) return null
 
                 val url = request.url?.toString() ?: return null
+
+                // ZERO-LATENCY FAST PATH: Immediate bypass for video & audio streams (googlevideo, videoplayback, cdn)
+                // This eliminates buffering latency and dropped frames on YouTube and media sites.
+                if (url.contains("googlevideo.com") ||
+                    url.contains("/videoplayback") ||
+                    url.contains(".ytimg.com") ||
+                    url.contains("youtube.com/api/stats/playback") ||
+                    url.contains(".ggpht.com")
+                ) {
+                    return null
+                }
+
                 // CRITICAL THREAD SAFETY: Do NOT invoke view.url! shouldInterceptRequest runs on Chrome_IOThread.
                 // Calling view.url asserts UI thread and throws RuntimeException.
                 val pageUrl = _navigationState.value.currentUrl
@@ -241,6 +253,10 @@ class SystemChromiumEngine(
                     progress = newProgress,
                     isLoading = newProgress < 100
                 )
+                // Early injection for YouTube mobile to prevent layout shifting
+                if (newProgress in 25..35 && current.currentUrl.contains("youtube.com")) {
+                    view?.evaluateJavascript(com.example.extensions.ContentScriptInjector.YOUTUBE_PLAYER_FIT_JS, null)
+                }
             }
 
             override fun onReceivedTitle(view: WebView?, title: String?) {
@@ -364,6 +380,18 @@ class SystemChromiumEngine(
     override fun clearCookies() {
         CookieManager.getInstance().removeAllCookies(null)
         CookieManager.getInstance().flush()
+    }
+
+    fun triggerVideoFullscreen() {
+        evaluateJavascript(com.example.extensions.ContentScriptInjector.FORCE_FULLSCREEN_JS, null)
+    }
+
+    fun getVideoDiagnostics(callback: (String) -> Unit) {
+        evaluateJavascript(com.example.extensions.ContentScriptInjector.GET_VIDEO_STATS_JS, callback)
+    }
+
+    fun setVideoQuality(quality: String) {
+        evaluateJavascript(com.example.extensions.ContentScriptInjector.getSetVideoQualityJs(quality), null)
     }
 
     override fun onPause() {

@@ -80,6 +80,29 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _showQrDialog = MutableStateFlow(false)
     val showQrDialog: StateFlow<Boolean> = _showQrDialog.asStateFlow()
 
+    // Video Diagnostics & Assistant Dialog
+    private val _showVideoDiagnosticsDialog = MutableStateFlow(false)
+    val showVideoDiagnosticsDialog: StateFlow<Boolean> = _showVideoDiagnosticsDialog.asStateFlow()
+
+    fun setShowVideoDiagnosticsDialog(show: Boolean) {
+        _showVideoDiagnosticsDialog.value = show
+    }
+
+    fun forceVideoFullscreen() {
+        val active = tabManager.getActiveTab()
+        (active?.engine as? com.example.engine.SystemChromiumEngine)?.triggerVideoFullscreen()
+    }
+
+    fun setVideoPlaybackQuality(quality: String) {
+        val active = tabManager.getActiveTab()
+        (active?.engine as? com.example.engine.SystemChromiumEngine)?.setVideoQuality(quality)
+    }
+
+    fun queryVideoDiagnostics(callback: (String) -> Unit) {
+        val active = tabManager.getActiveTab()
+        (active?.engine as? com.example.engine.SystemChromiumEngine)?.getVideoDiagnostics(callback)
+    }
+
     // Reader Mode State
     private val _readerArticle = MutableStateFlow<ReaderArticle?>(null)
     val readerArticle: StateFlow<ReaderArticle?> = _readerArticle.asStateFlow()
