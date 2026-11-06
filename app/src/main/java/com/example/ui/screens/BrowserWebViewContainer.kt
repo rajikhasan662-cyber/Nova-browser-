@@ -21,8 +21,8 @@ import com.example.tabs.BrowserTab
 @Composable
 fun BrowserWebViewContainer(
     activeTab: BrowserTab?,
-    fullscreenView: View?,
-    onExitFullscreen: () -> Unit,
+    fullscreenView: View? = null,
+    onExitFullscreen: () -> Unit = {},
     tabManager: com.example.tabs.TabManager? = null,
     modifier: Modifier = Modifier
 ) {
@@ -32,24 +32,7 @@ fun BrowserWebViewContainer(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        if (fullscreenView != null) {
-            // Fullscreen video playback mode
-            AndroidView(
-                factory = {
-                    (fullscreenView.parent as? ViewGroup)?.removeView(fullscreenView)
-                    fullscreenView
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-            FloatingActionButton(
-                onClick = onExitFullscreen,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp)
-            ) {
-                Icon(imageVector = Icons.Default.Close, contentDescription = "Exit Fullscreen")
-            }
-        } else if (activeTab != null) {
+        if (activeTab != null) {
             val engine = activeTab.engine ?: tabManager?.ensureEngineForTab(activeTab, context)
             if (engine != null) {
                 val webView = engine.webView

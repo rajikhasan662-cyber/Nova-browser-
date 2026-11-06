@@ -1,7 +1,11 @@
 package com.example
 
+import android.app.Activity
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -21,6 +25,11 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Bookmark
@@ -160,22 +169,75 @@ fun MainBrowserApp(viewModel: BrowserViewModel) {
         viewModel.tabManager.getActiveTab()
     }
 
-    // Android Hardware / Gesture BackHandler
-    BackHandler {
+    val activity = context as? Activity
+
+    // Immersive System Bars and Landscape orientation handling for Fullscreen Video Playback
+    androidx.compose.runtime.DisposableEffect(fullscreenView != null) {
+        val window = activity?.window
+        if (window != null) {
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            if (fullscreenView != null) {
+                insetsController.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            } else {
+                insetsController.show(WindowInsetsCompat.Type.systemBars())
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+        }
+        onDispose {
+            val w = activity?.window
+            if (w != null) {
+                val controller = WindowCompat.getInsetsController(w, w.decorView)
+                controller.show(WindowInsetsCompat.Type.systemBars())
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+        }
+    }
+
+    // Android Hardware / Gesture BackHandler:
+    // When in fullscreen video, exit fullscreen directly. Otherwise navigate browser history.
+    BackHandler(enabled = fullscreenView != null) {
+        viewModel.exitFullscreen()
+    }
+
+    BackHandler(enabled = fullscreenView == null) {
         if (!viewModel.goBack()) {
             (context as? ComponentActivity)?.finish()
         }
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets.safeDrawing,
-        modifier = Modifier.fillMaxSize()
-    ) { innerPadding ->
+    if (fullscreenView != null) {
+        // True Fullscreen Immersive Mode: Completely hides all browser chrome and expands edge-to-edge
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .background(Color.Black)
         ) {
+            AndroidView(
+                factory = {
+                    (fullscreenView?.parent as? ViewGroup)?.removeView(fullscreenView)
+                    fullscreenView?.apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    } ?: View(it)
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    } else {
+        Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing,
+            modifier = Modifier.fillMaxSize()
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
             when (currentScreen) {
                 BrowserScreen.BROWSER -> {
                     Column(modifier = Modifier.fillMaxSize()) {
@@ -360,8 +422,6 @@ fun MainBrowserApp(viewModel: BrowserViewModel) {
                             } else {
                                 BrowserWebViewContainer(
                                     activeTab = activeTab,
-                                    fullscreenView = fullscreenView,
-                                    onExitFullscreen = { viewModel.exitFullscreen() },
                                     tabManager = viewModel.tabManager
                                 )
                             }
@@ -555,4 +615,5 @@ fun MainBrowserApp(viewModel: BrowserViewModel) {
             }
         }
     }
+}
 }

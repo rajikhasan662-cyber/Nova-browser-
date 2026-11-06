@@ -43,10 +43,18 @@ class SystemChromiumEngine(
     private val _navigationState = MutableStateFlow(WebNavigationState())
     override val navigationState: StateFlow<WebNavigationState> = _navigationState.asStateFlow()
 
-    private val mobileUserAgent: String = runCatching { webView.settings.userAgentString }
-        .getOrDefault("Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36")
+    private val cleanMobileUserAgent: String by lazy {
+        val defaultUa = runCatching { webView.settings.userAgentString }.getOrNull()
+        if (!defaultUa.isNullOrBlank() && defaultUa.contains("Chrome/")) {
+            // Strip "; wv" and "Version/4.0" so websites recognise NOVA as full Google Chrome for Android
+            defaultUa.replace("; wv", "")
+                .replace(Regex("Version/\\d+\\.\\d+\\s*"), "")
+        } else {
+            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+        }
+    }
     private val desktopUserAgent: String =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
     init {
         configureWebSettings()
@@ -57,6 +65,7 @@ class SystemChromiumEngine(
     private fun configureWebSettings() {
         try {
             webView.settings.apply {
+                userAgentString = cleanMobileUserAgent
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 databaseEnabled = true
@@ -68,7 +77,7 @@ class SystemChromiumEngine(
                 builtInZoomControls = true
                 displayZoomControls = false
                 useWideViewPort = true
-                loadWithOverviewMode = true
+                loadWithOverviewMode = false // Don't shrink mobile responsive layouts like YouTube!
                 setSupportMultipleWindows(false)
                 cacheMode = if (isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
             }
@@ -169,6 +178,11 @@ class SystemChromiumEngine(
                     }.onFailure {
                         Log.w("SystemChromiumEngine", "Extension injection notice: ${it.message}")
                     }
+                    if (url.contains("youtube.com")) {
+                        runCatching {
+                            view.evaluateJavascript(com.example.extensions.ContentScriptInjector.YOUTUBE_PLAYER_FIT_JS, null)
+                        }
+                    }
                 }
             }
 
@@ -254,6 +268,10 @@ class SystemChromiumEngine(
                 super.onHideCustomView()
                 onFullscreenChanged?.invoke(null, null)
             }
+
+            override fun getDefaultVideoPoster(): Bitmap? {
+                return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+            }
         }
     }
 
@@ -307,8 +325,9 @@ class SystemChromiumEngine(
     }
 
     override fun setDesktopMode(enabled: Boolean) {
-        webView.settings.userAgentString = if (enabled) desktopUserAgent else mobileUserAgent
-        webView.settings.useWideViewPort = enabled
+        webView.settings.userAgentString = if (enabled) desktopUserAgent else cleanMobileUserAgent
+        webView.settings.useWideViewPort = true
+        webView.settings.loadWithOverviewMode = enabled
         _navigationState.value = _navigationState.value.copy(isDesktopMode = enabled)
         webView.reload()
     }

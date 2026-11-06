@@ -131,4 +131,61 @@ object ContentScriptInjector {
             console.log('[NOVA SponsorBlock] Active on YouTube');
         })();
     """.trimIndent()
+
+    /**
+     * YouTube Player Mobile Viewport Fit: Guarantees the mobile video player
+     * spans 100% full screen width edge-to-edge without pillarbox black margins,
+     * matching the official YouTube mobile app and Chrome for Android.
+     */
+    val YOUTUBE_PLAYER_FIT_JS = """
+        (function() {
+            if (!location.hostname.includes('youtube.com')) return;
+            function applyYtFullWidth() {
+                var styleId = 'nova-yt-player-width-fix';
+                var existing = document.getElementById(styleId);
+                if (!existing) {
+                    var style = document.createElement('style');
+                    style.id = styleId;
+                    style.type = 'text/css';
+                    style.textContent = `
+                        #player-container-id,
+                        .player-container,
+                        .player-size,
+                        #player,
+                        ytm-media-item .media-item-thumbnail-container,
+                        .video-thumbnail-container-compact {
+                            width: 100% !important;
+                            max-width: 100vw !important;
+                            margin-left: 0 !important;
+                            margin-right: 0 !important;
+                            padding-left: 0 !important;
+                            padding-right: 0 !important;
+                            left: 0 !important;
+                            right: 0 !important;
+                            box-sizing: border-box !important;
+                        }
+                        .html5-video-player {
+                            width: 100% !important;
+                            max-width: 100vw !important;
+                        }
+                        video.video-stream.html5-main-video {
+                            width: 100% !important;
+                            max-width: 100% !important;
+                            left: 0 !important;
+                            right: 0 !important;
+                            object-fit: contain !important;
+                        }
+                    `;
+                    (document.head || document.documentElement).appendChild(style);
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applyYtFullWidth);
+            } else {
+                applyYtFullWidth();
+            }
+            window.addEventListener('yt-navigate-finish', applyYtFullWidth);
+            window.addEventListener('resize', applyYtFullWidth);
+        })();
+    """.trimIndent()
 }
